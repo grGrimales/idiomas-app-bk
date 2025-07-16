@@ -1,13 +1,16 @@
 import { Controller, Post, Body, UseGuards, Patch, UseInterceptors, Param, ParseIntPipe, UploadedFile, Get, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { GetUser } from 'src/auth/decorators/get-user.decorator';
-import { User } from 'src/auth/schemas/user.schema';
-import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 import { CreateManyPhrasesDto } from './dto/create-many-phrases.dto';
 import { PhrasesService } from './phrases.service';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { CreateDeepStudyDto } from './dto/create-deep-study.dto';
+import { ParseMongoIdPipe } from '../common/pipes/parse-mongo-id.pipe';
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { User } from '../auth/schemas/user.schema';
+
+
+
 
 @Controller('phrases')
 @UseGuards(AuthGuard()) // Proteger todas las rutas de este controlador

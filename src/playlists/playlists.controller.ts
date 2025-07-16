@@ -1,11 +1,11 @@
 import { PlaylistsService } from './playlists.service';
 import { AuthGuard } from '@nestjs/passport';
-import { GetUser } from 'src/auth/decorators/get-user.decorator';
-import { User } from 'src/auth/schemas/user.schema';
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { User } from '../auth/schemas/user.schema';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { AddPhrasesToPlaylistDto } from './dto/add-phrases-to-playlist.dto';
 import { Controller, Get, Post, Body, UseGuards, Param } from '@nestjs/common';
-import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
+import { ParseMongoIdPipe } from '../common/pipes/parse-mongo-id.pipe';
 
 @Controller('playlists')
 @UseGuards(AuthGuard()) // Proteger todas las rutas de este controlador
