@@ -31,4 +31,12 @@ export class StatisticsService {
       { upsert: true, new: true },
     );
   }
+
+  async incrementDeepStudyCount(user: User, phraseId: string) {
+  return this.statsModel.findOneAndUpdate(
+    { user: user._id, phrase: phraseId },
+    { $inc: { deepStudyCount: 1 } }, // Incrementamos el contador correcto
+    { upsert: true, new: true },
+  );
+}
 }

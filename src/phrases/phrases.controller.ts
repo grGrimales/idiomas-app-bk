@@ -7,6 +7,7 @@ import { ParseMongoIdPipe } from 'src/common/pipes/parse-mongo-id.pipe';
 import { CreateManyPhrasesDto } from './dto/create-many-phrases.dto';
 import { PhrasesService } from './phrases.service';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
+import { CreateDeepStudyDto } from './dto/create-deep-study.dto';
 
 @Controller('phrases')
 @UseGuards(AuthGuard()) // Proteger todas las rutas de este controlador
@@ -60,4 +61,9 @@ export class PhrasesController {
   createAssessmentSession(@Req() req: any, @Body() createAssessmentDto: CreateAssessmentDto) {
     return this.phrasesService.createAssessmentSession(req.user, createAssessmentDto);
   }
+  @Post('deep-study-session')
+  createDeepStudySession(@Req() req: any, @Body() createDeepStudyDto: CreateDeepStudyDto) {
+    return this.phrasesService.createDeepStudySession(req.user, createDeepStudyDto);
+  }
+
 }

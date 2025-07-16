@@ -11,6 +11,7 @@ import { PlaylistsService } from 'src/playlists/playlists.service';
 import { CreateManyPhrasesDto } from './dto/create-many-phrases.dto';
 import { Playlist } from 'src/playlists/schemas/playlist.schema';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
+import { CreateDeepStudyDto } from './dto/create-deep-study.dto';
 
 @Injectable()
 export class PhrasesService {
@@ -284,5 +285,63 @@ export class PhrasesService {
     return aggregatedPhrases;
   }
 
-  // ... otros métodos
+// ... (dentro de la clase PhrasesService)
+async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
+  const { playlistId, orderBy, limit } = options;
+  const pipeline: any[] = [];
+
+  // 1. Filtrar por Playlist o por usuario
+  if (playlistId) {
+    const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
+    if (!playlist) throw new NotFoundException('Playlist no encontrada');
+    pipeline.push({ $match: { _id: { $in: playlist.phrases } } });
+  } else {
+    pipeline.push({ $match: { createdBy: user._id } });
+  }
+
+   if (orderBy === 'random') {
+    pipeline.push({ $sample: { size: limit } });
+  } else { // 'least_studied'
+    pipeline.push(
+      {
+        $lookup: {
+          from: 'userphrasestats',
+          let: { phraseId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
+          ],
+          as: 'stats',
+        },
+      },
+      { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
+    );
+    pipeline.push({ $sort: { 'stats.deepStudyCount': 1 } });
+    pipeline.push({ $limit: limit });
+  }
+
+  // 2. Unir con estadísticas y ordenar
+  pipeline.push(
+    {
+      $lookup: {
+        from: 'userphrasestats',
+        let: { phraseId: '$_id' },
+        pipeline: [
+          { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
+        ],
+        as: 'stats',
+      },
+    },
+    { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } }
+  );
+  
+  // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
+  pipeline.push({ $sort: { 'stats.deepStudyCount': 1 } });
+  pipeline.push({ $limit: limit });
+
+  // 3. Obtener y popular los resultados
+  const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
+  await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
+
+  return aggregatedPhrases;
+}
 }
