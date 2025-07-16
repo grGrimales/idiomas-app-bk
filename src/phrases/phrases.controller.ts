@@ -9,9 +9,6 @@ import { ParseMongoIdPipe } from '../common/pipes/parse-mongo-id.pipe';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/schemas/user.schema';
 
-
-
-
 @Controller('phrases')
 @UseGuards(AuthGuard()) // Proteger todas las rutas de este controlador
 export class PhrasesController {
