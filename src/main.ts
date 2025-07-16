@@ -9,7 +9,8 @@ async function bootstrap() {
   const whitelist = [
     'http://localhost:4200', // Para desarrollo local
     'https://idiomas-app-fe.vercel.app', // Tu dominio de producción
-    'https://idiomas-app.vercel.app'
+    'https://idiomas-app.vercel.app',
+    'https://idiomas-app.vercel.app/'
   ];
 
   app.enableCors({
