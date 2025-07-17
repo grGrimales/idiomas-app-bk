@@ -14,7 +14,7 @@ async function bootstrap() {
   ];
 
   app.enableCors({
-    origin: function (origin, callback) {
+    origin: function (origin, callback) { 
       if (!origin || whitelist.indexOf(origin) !== -1) {
         // Si el origen está en la lista blanca (o no hay origen, como en Postman), permite la petición
         callback(null, true);

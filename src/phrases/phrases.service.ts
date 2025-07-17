@@ -12,6 +12,7 @@ import { CreateManyPhrasesDto } from './dto/create-many-phrases.dto';
 import { Playlist } from 'src/playlists/schemas/playlist.schema';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { CreateDeepStudyDto } from './dto/create-deep-study.dto';
+import { GetPhrasesQueryDto } from './dto/get-phrases-query.dto';
 
 @Injectable()
 export class PhrasesService {
@@ -169,16 +170,58 @@ export class PhrasesService {
   }
 
 
-  async findWithMissingAudio(user: User): Promise<Phrase[]> {
-    // Buscamos frases creadas por el usuario donde, dentro de sus traducciones y audios,
-    // exista al menos un 'audioUrl' que sea una cadena vacía.
-    return this.phraseModel.find({
+  async findWithMissingAudio(user: User, query: GetPhrasesQueryDto): Promise<Phrase[]> {
+    const { sortBy, playlistId } = query;
+    const filter: any = {
       createdBy: user._id,
       $or: [
         { "translations.audios.audioUrl": "audio.pendiente.mp3" },
-        { "originAudioUrl": "audio.pendiente.mp3" }
+        { "translations.audios": { $size: 0 } },
+        { originAudioUrl: "audio.pendiente.mp3" },
+        { originAudioUrl: { $exists: false } }
       ]
-    }).exec();
+    };
+
+    if (playlistId) {
+      const playlist = await this.playlistModel.findById(playlistId);
+      if (playlist) {
+        filter._id = { $in: playlist.phrases };
+      }
+    }
+
+    const sortOptions = {};
+    if (sortBy) {
+      const [field, order] = sortBy.split('_');
+      sortOptions[field] = order === 'asc' ? 1 : -1;
+    } else {
+      sortOptions['createdAt'] = -1; // Default sort
+    }
+
+    return await this.phraseModel.find(filter).sort(sortOptions).exec();
+  }
+
+  async deleteAudio(phraseId: string, translationIndex: number, gender: string): Promise<Phrase> {
+    const phrase = await this.phraseModel.findById(phraseId);
+    if (!phrase) {
+      throw new NotFoundException(`La frase con ID "${phraseId}" no fue encontrada.`);
+    }
+
+    if (gender === 'origin') {
+      phrase.originAudioUrl = 'audio.pendiente.mp3';
+    } else {
+      if (!phrase.translations[translationIndex]) {
+        throw new NotFoundException(`La traducción en el índice ${translationIndex} no existe.`);
+      }
+      const audioToUpdate = phrase.translations[translationIndex].audios.find(
+        (audio) => audio.gender === gender,
+      );
+      if (!audioToUpdate) {
+        throw new NotFoundException(`No se encontró un espacio para el audio de género "${gender}".`);
+      }
+      audioToUpdate.audioUrl = 'audio.pendiente.mp3';
+    }
+
+    return phrase.save();
   }
 
 
@@ -285,63 +328,59 @@ export class PhrasesService {
     return aggregatedPhrases;
   }
 
-// ... (dentro de la clase PhrasesService)
-async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
-  const { playlistId, orderBy, limit } = options;
-  const pipeline: any[] = [];
+  // ... (dentro de la clase PhrasesService)
+  async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
+    const { playlistId, orderBy, limit } = options;
+    
+    // Objeto base para el filtro inicial
+    const matchFilter: any = {
+      createdBy: user._id,
+      // 👇 === ¡AQUÍ ESTÁ LA CORRECCIÓN! === 👇
+      // Se asegura que ambos audios de traducción existan y no sean el placeholder.
+      // Ya no se requiere el 'originAudioUrl'.
+      'translations.0.audios': {
+        $all: [
+          { $elemMatch: { gender: "femenino", audioUrl: { $ne: 'audio.pendiente.mp3' } } },
+          { $elemMatch: { gender: "masculino", audioUrl: { $ne: 'audio.pendiente.mp3' } } }
+        ]
+      }
+    };
 
-  // 1. Filtrar por Playlist o por usuario
-  if (playlistId) {
-    const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
-    if (!playlist) throw new NotFoundException('Playlist no encontrada');
-    pipeline.push({ $match: { _id: { $in: playlist.phrases } } });
-  } else {
-    pipeline.push({ $match: { createdBy: user._id } });
-  }
+    // 1. Filtrar por Playlist (si se proporciona)
+    if (playlistId) {
+      const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
+      if (!playlist) throw new NotFoundException('Playlist no encontrada');
+      matchFilter._id = { $in: playlist.phrases };
+    }
 
-   if (orderBy === 'random') {
-    pipeline.push({ $sample: { size: limit } });
-  } else { // 'least_studied'
-    pipeline.push(
-      {
-        $lookup: {
-          from: 'userphrasestats',
-          let: { phraseId: '$_id' },
-          pipeline: [
-            { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
-          ],
-          as: 'stats',
+    const pipeline: any[] = [{ $match: matchFilter }];
+
+    // 2. Ordenamiento
+    if (orderBy === 'random') {
+      pipeline.push({ $sample: { size: limit } });
+    } else { // 'least_studied'
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'userphrasestats',
+            let: { phraseId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
+            ],
+            as: 'stats',
+          },
         },
-      },
-      { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
-    );
-    pipeline.push({ $sort: { 'stats.deepStudyCount': 1 } });
-    pipeline.push({ $limit: limit });
-  }
-
-  // 2. Unir con estadísticas y ordenar
-  pipeline.push(
-    {
-      $lookup: {
-        from: 'userphrasestats',
-        let: { phraseId: '$_id' },
-        pipeline: [
-          { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
-        ],
-        as: 'stats',
-      },
-    },
-    { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } }
-  );
+        { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
+        // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
+        { $sort: { 'stats.deepStudyCount': 1 } },
+        { $limit: limit }
+      );
+    }
   
-  // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
-  pipeline.push({ $sort: { 'stats.deepStudyCount': 1 } });
-  pipeline.push({ $limit: limit });
-
-  // 3. Obtener y popular los resultados
-  const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
-  await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
-
-  return aggregatedPhrases;
-}
+    // 3. Obtener y popular los resultados
+    const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
+    await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
+  
+    return aggregatedPhrases;
+  }
 }

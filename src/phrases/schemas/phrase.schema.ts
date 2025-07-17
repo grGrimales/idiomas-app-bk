@@ -27,8 +27,8 @@ export class Phrase extends Document {
   @Prop({ type: [TranslationSchema], required: true }) // Array de sub-documentos Translation
   translations: Translation[];
 
-    @Prop({ type: String, required: false }) // <-- AÑADE ESTA LÍNEA
-  originAudioUrl?: string;     
+  @Prop({ type: String, required: false }) // <-- AÑADE ESTA LÍNEA
+  originAudioUrl?: string;
 }
 
 export const PhraseSchema = SchemaFactory.createForClass(Phrase);
