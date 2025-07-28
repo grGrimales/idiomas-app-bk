@@ -268,14 +268,23 @@ export class PhrasesService {
     const { playlistId, orderBy, limit } = options;
     const pipeline: any[] = [];
 
+    const audioFilter = {
+      audio_fem: { $ne: null, $nin: ['', undefined] }, // Asegura que audio_fem existe y no es nulo ni vacío
+      audio_masc: { $ne: null, $nin: ['', undefined] }, // Asegura que audio_masc existe y no es nulo ni vacío
+    };
+
     // --- 1. Filtrar por Playlist (si se proporciona) ---
     if (playlistId) {
       const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
       if (!playlist) throw new NotFoundException('Playlist no encontrada');
-      pipeline.push({ $match: { _id: { $in: playlist.phrases } } });
+
+      // Combina el filtro de la playlist con el filtro de audio
+      pipeline.push({ $match: { ...audioFilter, _id: { $in: playlist.phrases } } });
+
     } else {
       // Si no hay playlist, filtramos por todas las frases del usuario
-      pipeline.push({ $match: { createdBy: user._id } });
+
+      pipeline.push({ $match: { ...audioFilter, createdBy: user._id } });
     }
 
     // --- 2. Ordenamiento ---
@@ -331,7 +340,7 @@ export class PhrasesService {
   // ... (dentro de la clase PhrasesService)
   async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
     const { playlistId, orderBy, limit } = options;
-    
+
     // Objeto base para el filtro inicial
     const matchFilter: any = {
       createdBy: user._id,
@@ -376,11 +385,11 @@ export class PhrasesService {
         { $limit: limit }
       );
     }
-  
+
     // 3. Obtener y popular los resultados
     const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
     await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
-  
+
     return aggregatedPhrases;
   }
 }
