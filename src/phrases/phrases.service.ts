@@ -265,27 +265,29 @@ export class PhrasesService {
   }
 
   async createAssessmentSession(user: User, options: CreateAssessmentDto): Promise<Phrase[]> {
-    const { playlistId, orderBy, limit } = options;
-    const pipeline: any[] = [];
+ const { playlistId, orderBy, limit } = options;
+  const pipeline: any[] = [];
 
-    const audioFilter = {
-      audio_fem: { $ne: null, $nin: ['', undefined] }, // Asegura que audio_fem existe y no es nulo ni vacío
-      audio_masc: { $ne: null, $nin: ['', undefined] }, // Asegura que audio_masc existe y no es nulo ni vacío
-    };
+  // 👇 === AJUSTE IMPORTANTE AQUÍ === 👇
+  // Este filtro es más robusto.
+  // Revisa que el campo EXISTA y que NO sea una cadena vacía.
+  const audioFilter = {
+    audio_fem: { $exists: true, $ne: '' },
+    audio_masc: { $exists: true, $ne: '' },
+  };
 
-    // --- 1. Filtrar por Playlist (si se proporciona) ---
-    if (playlistId) {
-      const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
-      if (!playlist) throw new NotFoundException('Playlist no encontrada');
+  // --- 1. Filtrar por Playlist (si se proporciona) ---
+  if (playlistId) {
+    const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
+    if (!playlist) throw new NotFoundException('Playlist no encontrada');
 
-      // Combina el filtro de la playlist con el filtro de audio
-      pipeline.push({ $match: { ...audioFilter, _id: { $in: playlist.phrases } } });
+    // Combina el filtro de la playlist con el filtro de audio
+    pipeline.push({ $match: { _id: { $in: playlist.phrases }, ...audioFilter } });
 
-    } else {
-      // Si no hay playlist, filtramos por todas las frases del usuario
-
-      pipeline.push({ $match: { ...audioFilter, createdBy: user._id } });
-    }
+  } else {
+    // Si no hay playlist, filtramos por todas las frases del usuario
+    pipeline.push({ $match: { createdBy: user._id, ...audioFilter } });
+  }
 
     // --- 2. Ordenamiento ---
     if (orderBy === 'random') {
