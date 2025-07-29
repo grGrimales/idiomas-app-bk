@@ -193,7 +193,7 @@ export class PhrasesService {
 
 
     // si playlistId es igual a "" entonces que retorne todas las frases con audio o sin audios pero ordenadas por sortBy
-    if (playlistId === '') {
+    if (playlistId === 'todas') {
       return this.phraseModel.find(filter).sort(sortOptions).exec();
     }
 
