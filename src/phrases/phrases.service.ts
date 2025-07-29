@@ -182,7 +182,7 @@ export class PhrasesService {
       ]
     };
 
-     const sortOptions = {};
+    const sortOptions = {};
     if (sortBy) {
       const [field, order] = sortBy.split('_');
       sortOptions[field] = order === 'asc' ? 1 : -1;
@@ -191,10 +191,14 @@ export class PhrasesService {
     }
 
 
-
     // si playlistId es igual a "" entonces que retorne todas las frases con audio o sin audios pero ordenadas por sortBy
     if (playlistId === 'todas') {
-      return this.phraseModel.find(filter).sort(sortOptions).exec();
+      return await this.phraseModel.find(
+        {
+          createdBy: user._id,
+
+        }
+      ).sort(sortOptions).exec();
     }
 
     if (playlistId) {
@@ -204,7 +208,7 @@ export class PhrasesService {
       }
     }
 
-   
+
     return await this.phraseModel.find(filter).sort(sortOptions).exec();
   }
 
@@ -341,7 +345,7 @@ export class PhrasesService {
   // ... (dentro de la clase PhrasesService)
   async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
     const { playlistId, orderBy, limit } = options;
-    
+
     // Objeto base para el filtro inicial
     const matchFilter: any = {
       createdBy: user._id,
@@ -386,69 +390,69 @@ export class PhrasesService {
         { $limit: limit }
       );
     }
-  
+
     // 3. Obtener y popular los resultados
     const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
     await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
-  
+
     return aggregatedPhrases;
   }
 
 
-    async createRelaxSession(user: User, config: any): Promise<Phrase[]> {
-      const { playlistId, orderBy, limit } = config;
+  async createRelaxSession(user: User, config: any): Promise<Phrase[]> {
+    const { playlistId, orderBy, limit } = config;
 
-       const numericLimit = Number(limit) || 10;
+    const numericLimit = Number(limit) || 10;
 
-      // Filtro base para las frases del usuario
-      const matchFilter: any = {
-        createdBy: user._id,
-        'translations.0.audios': {
-          $all: [
-            { $elemMatch: { gender: "femenino", audioUrl: { $ne: 'audio.pendiente.mp3' } } },
-            { $elemMatch: { gender: "masculino", audioUrl: { $ne: 'audio.pendiente.mp3' } } }
-          ]
-        }
-      };
-
-      // 1. Filtrar por Playlist (si se proporciona)
-      if (playlistId) {
-        const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
-        if (!playlist) throw new NotFoundException('Playlist no encontrada');
-        matchFilter._id = { $in: playlist.phrases };
+    // Filtro base para las frases del usuario
+    const matchFilter: any = {
+      createdBy: user._id,
+      'translations.0.audios': {
+        $all: [
+          { $elemMatch: { gender: "femenino", audioUrl: { $ne: 'audio.pendiente.mp3' } } },
+          { $elemMatch: { gender: "masculino", audioUrl: { $ne: 'audio.pendiente.mp3' } } }
+        ]
       }
+    };
 
-      const pipeline: any[] = [{ $match: matchFilter }];
-
-      // 2. Ordenamiento
-      if (orderBy === 'random') {
-        pipeline.push({ $sample: { size: numericLimit } });
-      } else { // 'least_studied'
-
-        pipeline.push(
-          {
-            $lookup: {
-              from: 'userphrasestats',
-              let: { phraseId: '$_id' },
-              pipeline: [
-                { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
-              ],
-              as: 'stats',
-            },
-          },
-          { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
-          // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
-          { $sort: { 'stats.relaxListenCount': 1 } },
-          { $limit: numericLimit }
-        );
-      }
-
-      // 3. Obtener y popular los resultados
-      const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
-      await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
-
-      return aggregatedPhrases;
+    // 1. Filtrar por Playlist (si se proporciona)
+    if (playlistId) {
+      const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
+      if (!playlist) throw new NotFoundException('Playlist no encontrada');
+      matchFilter._id = { $in: playlist.phrases };
     }
+
+    const pipeline: any[] = [{ $match: matchFilter }];
+
+    // 2. Ordenamiento
+    if (orderBy === 'random') {
+      pipeline.push({ $sample: { size: numericLimit } });
+    } else { // 'least_studied'
+
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'userphrasestats',
+            let: { phraseId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
+            ],
+            as: 'stats',
+          },
+        },
+        { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
+        // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
+        { $sort: { 'stats.relaxListenCount': 1 } },
+        { $limit: numericLimit }
+      );
+    }
+
+    // 3. Obtener y popular los resultados
+    const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
+    await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
+
+    return aggregatedPhrases;
+  }
 
 
 
