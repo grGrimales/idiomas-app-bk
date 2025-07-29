@@ -182,14 +182,7 @@ export class PhrasesService {
       ]
     };
 
-    if (playlistId) {
-      const playlist = await this.playlistModel.findById(playlistId);
-      if (playlist) {
-        filter._id = { $in: playlist.phrases };
-      }
-    }
-
-    const sortOptions = {};
+     const sortOptions = {};
     if (sortBy) {
       const [field, order] = sortBy.split('_');
       sortOptions[field] = order === 'asc' ? 1 : -1;
@@ -197,6 +190,21 @@ export class PhrasesService {
       sortOptions['createdAt'] = -1; // Default sort
     }
 
+
+
+    // si playlistId es igual a "" entonces que retorne todas las frases con audio o sin audios pero ordenadas por sortBy
+    if (playlistId === '') {
+      return this.phraseModel.find(filter).sort(sortOptions).exec();
+    }
+
+    if (playlistId) {
+      const playlist = await this.playlistModel.findById(playlistId);
+      if (playlist) {
+        filter._id = { $in: playlist.phrases };
+      }
+    }
+
+   
     return await this.phraseModel.find(filter).sort(sortOptions).exec();
   }
 
