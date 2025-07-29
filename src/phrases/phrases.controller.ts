@@ -76,4 +76,11 @@ export class PhrasesController {
     return this.phrasesService.createDeepStudySession(req.user, createDeepStudyDto);
   }
 
+  // relax-session
+  @Post('relax-session')
+  createRelaxSession(@Body() config: any, @Req() req: any) {
+    const user = req.user as User;
+    return this.phrasesService.createRelaxSession(user, config);
+  }
+
 }

@@ -22,4 +22,11 @@ export class StatisticsController {
   incrementDeepStudy(@Req() req: any, @Param('phraseId', ParseMongoIdPipe) phraseId: string) {
     return this.statisticsService.incrementDeepStudyCount(req.user, phraseId);
   }
+
+  @Post('relax-listen/:phraseId')
+  incrementRelaxListen(@Req() req: any, @Param('phraseId', ParseMongoIdPipe) phraseId: string) {
+    return this.statisticsService.incrementRelaxListenCount(req.user, phraseId);
+  }
+
+
 }

@@ -39,4 +39,17 @@ export class StatisticsService {
     { upsert: true, new: true },
   );
 }
+
+  async incrementRelaxListenCount(user: User, phraseId: string) {
+    return this.statsModel.findOneAndUpdate(
+      { user: user._id, phrase: phraseId },
+      { $inc: { relaxListenCount: 1 } }, // Incrementamos el contador correcto
+      { upsert: true, new: true },
+    );
+  }
+
+  
+
+
+
 }

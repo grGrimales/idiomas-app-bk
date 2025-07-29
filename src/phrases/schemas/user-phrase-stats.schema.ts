@@ -24,6 +24,9 @@ export class UserPhraseStats extends Document {
 
   @Prop({ default: 0 })
   evalFailCount: number;
+
+  @Prop({ default: 0 })
+  relaxCount: number;
 }
 
 export const UserPhraseStatsSchema = SchemaFactory.createForClass(UserPhraseStats);
