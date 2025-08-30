@@ -48,7 +48,7 @@ async findAllByUser(user: any): Promise<Playlist[]> {
 
    // filtrar el play list donde  _id = user._id or isDefault contenga true
    const userPlaylists = allPlaylists.filter(playlist => 
-     playlist.user.equals(user._id) || playlist.sharedWith.includes(user._id) || playlist.isDefault
+     playlist.user.equals(user._id) || playlist.sharedWith.includes(user._id) 
    );
 
 
