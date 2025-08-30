@@ -13,6 +13,8 @@ import { Playlist } from 'src/playlists/schemas/playlist.schema';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { CreateDeepStudyDto } from './dto/create-deep-study.dto';
 import { GetPhrasesQueryDto } from './dto/get-phrases-query.dto';
+import { console } from 'inspector';
+import e from 'express';
 
 @Injectable()
 export class PhrasesService {
@@ -348,91 +350,99 @@ export class PhrasesService {
   }
 
   // ... (dentro de la clase PhrasesService)
-  async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
-
-    try {
-      const { playlistId, orderBy, limit, groupIds } = options;
+  async createDeepStudySession(user: User, options: any): Promise<any> {
 
 
-      // listado de frases por play list
+    const { playlistId, orderBy, limit, groupIds } = options;
 
-      // Objeto base para el filtro inicial
-      const matchFilter: any = {
-        createdBy: user._id,
-        // 👇 === ¡AQUÍ ESTÁ LA CORRECCIÓN! === 👇
-        // Se asegura que ambos audios de traducción existan y no sean el placeholder.
-        // Ya no se requiere el 'originAudioUrl'.
-        'translations.0.audios': {
-          $all: [
-            { $elemMatch: { gender: "femenino", audioUrl: { $ne: 'audio.pendiente.mp3' } } },
-            { $elemMatch: { gender: "masculino", audioUrl: { $ne: 'audio.pendiente.mp3' } } }
-          ]
-        }
-      };
-
-      // 1. Filtrar por Playlist (si se proporciona)
-      if (playlistId) {
-        const playList = await this.playlistsService.findAllByUser(user);
-        const phrasesID = playList.map(playlist => playlist.phrases).flat();
-        if (!playList) throw new NotFoundException('Playlist no encontrada');
-          matchFilter._id = { $in: phrasesID };
-      }
+    console.log('options:', options);
 
 
-      const pipeline: any[] = [{ $match: matchFilter }];
+    const misPlayList = await this.playlistsService.findAllByUser(user);
+    const misPlayListFiltered = misPlayList.filter(pl => pl._id.toString() === playlistId);
+
+    // validamos que el play list exista entre mis playLists
+
+    console.log('misPlayList:', misPlayList);
 
 
-      if (groupIds) {
-        // groupID es un array de numeros
+    // const playlist =  misPlayList.find(pl => pl._id === playlistId);
 
-        pipeline[0].$match.groupId = { $in: groupIds };
+    if (!misPlayListFiltered) throw new NotFoundException('Playlist no encontrada');
 
-      }
+    const fraseDeMiPlayList = misPlayListFiltered[0].phrases;
 
-      // 2. Ordenamiento
-      if (orderBy === 'random') {
-        pipeline.push({ $sample: { size: limit } });
+    // buscar las frases con este listado 
 
-      } else { // 'least_studied'
-        pipeline.push(
-          {
-            $lookup: {
-              from: 'userphrasestats',
-              let: { phraseId: '$_id' },
-              pipeline: [
-                { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
-              ],
-              as: 'stats',
-            },
-          },
-          { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
-          // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
-          { $sort: { 'stats.deepStudyCount': 1 } },
-          { $limit: limit }
-        );
-      }
+    const frases = await this.phraseModel.find({ _id: { $in: fraseDeMiPlayList } });
+
+    if (!frases) throw new NotFoundException('Frases no encontradas');
+
+    let frasesARetornar = [];
+
+    // quitar los que tienen audio pendiente
+
+    /*
+
+    "misPlayList": [
+        {
+            "_id": "68b34944bfd0c394ae151b11",
+            "originalText": "¿Qué significa realmente esta abreviatura?",
+            "level": "intermedio",
+            "createdBy": "68b2fce06d4f503ab97af504",
+            "translations": [
+                {
+                    "language": "en",
+                    "translatedText": "What does this abbreviation really stand for?",
+                    "imageUrl": "/default/image.png",
+                    "audios": [
+                        {
+                            "gender": "femenino",
+                            "audioUrl": "audio.pendiente.mp3"
+                        },
+                        {
+                            "gender": "masculino",
+                            "audioUrl": "audio.pendiente.mp3"
+                        }
+                    ]
+                }
+            ],
+            "groupId": 1,
+            "__v": 0,
+            "createdAt": "2025-08-30T18:56:04.689Z",
+            "updatedAt": "2025-08-30T18:56:04.689Z"
+        },*/
 
 
+    frasesARetornar = frases.filter(frase => {
+      return frase.translations.every(translation => {
+        return translation.audios.every(audio => audio.audioUrl !== 'audio.pendiente.mp3');
+      });
+    });
 
-      // 3. Obtener y popular los resultados
-      const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
-      // await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
-
-
-
-      return aggregatedPhrases;
-
-    } catch (error) {
-      console.error('Error al crear la sesión de estudio profundo:', error);
-      // si Expected a number in: $limit: null
-      if (error.message.includes('Expected a number in: $limit')) {
-        throw new BadRequestException('El limit debe ser un número ');
-      }
-
-
-      throw new InternalServerErrorException('Error al crear la sesión de estudio profundo');
+    // ordenar en base a orderBy
+    if (orderBy === 'random') {
+      frasesARetornar = this.shuffleArray(frasesARetornar);
+    } else {
+      frasesARetornar = frasesARetornar.sort((a: any, b: any) => a.successRate - b.successRate);
     }
 
+
+    if(groupIds) {
+
+      console.log(groupIds)
+      frasesARetornar = frasesARetornar.filter(frase => groupIds.includes(frase.groupId));
+    }
+
+    // limit
+    if (limit) {
+      frasesARetornar = frasesARetornar.slice(0, limit);
+    } 
+
+    return {
+
+      "misPlayList": frasesARetornar,
+    }
 
   }
 
@@ -455,11 +465,11 @@ export class PhrasesService {
 
     // 1. Filtrar por Playlist (si se proporciona)
     if (playlistId) {
-        const playList = await this.playlistsService.findAllByUser(user);
-        const phrasesID = playList.map(playlist => playlist.phrases).flat();
-        if (!playList) throw new NotFoundException('Playlist no encontrada');
-          matchFilter._id = { $in: phrasesID };
-      }
+      const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
+      if (!playlist) throw new NotFoundException('Playlist no encontrada');
+      matchFilter._id = { $in: playlist.phrases };
+    }
+
     const pipeline: any[] = [{ $match: matchFilter }];
 
     if (groupId) {
@@ -496,6 +506,12 @@ export class PhrasesService {
     return aggregatedPhrases;
   }
 
-
+  shuffleArray(array: any[]): any[] {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
 
 }

@@ -36,18 +36,18 @@ export class PlaylistsService {
     return defaultPlaylist;
   }
 
-async findAllByUser(user: any): Promise<Playlist[]> {
+  async findAllByUser(user: any): Promise<Playlist[]> {
 
-   const allPlaylists = await this.playlistModel.find().exec();
+    const allPlaylists = await this.playlistModel.find().exec();
 
-   // filtrar el play list donde  _id = user._id or isDefault contenga true
-   const userPlaylists = allPlaylists.filter(playlist => 
-     playlist.user.equals(user._id) || playlist.sharedWith.includes(user._id) 
-   );
+    // filtrar el play list donde  _id = user._id or isDefault contenga true
+    const userPlaylists = allPlaylists.filter(playlist =>
+      playlist.user.equals(user._id) || playlist.sharedWith.includes(user._id)
+    );
 
 
-   return userPlaylists;
-}
+    return userPlaylists;
+  }
 
   async create(createPlaylistDto: CreatePlaylistDto, user: User): Promise<Playlist> {
     const { name } = createPlaylistDto;
@@ -148,6 +148,6 @@ async findAllByUser(user: any): Promise<Playlist[]> {
   }
 
 
-  
+
 
 }

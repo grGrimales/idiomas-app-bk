@@ -73,6 +73,8 @@ export class PhrasesController {
   }
   @Post('deep-study-session')
   createDeepStudySession(@Req() req: any, @Body() createDeepStudyDto: CreateDeepStudyDto) {
+
+    console.log(createDeepStudyDto.groupIds)
     return this.phrasesService.createDeepStudySession(req.user, createDeepStudyDto);
   }
 
