@@ -18,6 +18,11 @@ export class Playlist extends Document {
   // Array de referencias a las frases
    @Prop([{ type: MongooseSchema.Types.ObjectId, ref: 'Phrase' }])
   phrases: Types.ObjectId[];
+
+
+    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'User' }] })
+  sharedWith: User[];
+
 }
 
 export const PlaylistSchema = SchemaFactory.createForClass(Playlist);

@@ -24,4 +24,8 @@ export class CreatePhraseDto {
 
   @IsNotEmpty()
   translation: CreateTranslationDto;
+
+  // groupId es requerido
+  @IsNotEmpty()
+  groupId: number;
 }

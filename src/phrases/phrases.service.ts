@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Phrase } from './schemas/phrase.schema';
@@ -65,7 +65,7 @@ export class PhrasesService {
 
 
   async createMany(createManyDto: CreateManyPhrasesDto, user: User) {
-    const { phrases: dtos, playlists: playlistNames = [] } = createManyDto;
+    const { phrases: dtos, playlists: playlistNames = [] , groupId} = createManyDto;
 
     const createdPhrases = [];
     const failedPhrases = [];
@@ -82,7 +82,7 @@ export class PhrasesService {
       const newPlaylistNames = playlistNames.filter(name => !existingPlaylistNames.has(name));
 
       if (newPlaylistNames.length > 0) {
-        const newPlaylistsToCreate = newPlaylistNames.map(name => ({ name, user: user._id, phrases: [] }));
+        const newPlaylistsToCreate = newPlaylistNames.map(name => ({ name, user: user._id, phrases: [] , groupId: groupId })); // <-- AÑADE groupId aquí
         const createdPlaylists = await this.playlistModel.insertMany(newPlaylistsToCreate);
         targetPlaylistIds.push(...createdPlaylists.map(p => p._id));
       }
@@ -344,7 +344,12 @@ export class PhrasesService {
 
   // ... (dentro de la clase PhrasesService)
   async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
-    const { playlistId, orderBy, limit } = options;
+ 
+    try {
+         const { playlistId, orderBy, limit, groupIds } = options;
+
+
+         // listado de frases por play list
 
     // Objeto base para el filtro inicial
     const matchFilter: any = {
@@ -367,11 +372,21 @@ export class PhrasesService {
       matchFilter._id = { $in: playlist.phrases };
     }
 
+
     const pipeline: any[] = [{ $match: matchFilter }];
+
+
+    if (groupIds) {
+     // groupID es un array de numeros
+
+     pipeline[0].$match.groupId = { $in: groupIds };
+
+    }
 
     // 2. Ordenamiento
     if (orderBy === 'random') {
       pipeline.push({ $sample: { size: limit } });
+
     } else { // 'least_studied'
       pipeline.push(
         {
@@ -391,16 +406,33 @@ export class PhrasesService {
       );
     }
 
+
+
     // 3. Obtener y popular los resultados
     const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
-    await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
+   // await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
+
+
 
     return aggregatedPhrases;
+      
+    } catch (error) {
+      console.error('Error al crear la sesión de estudio profundo:', error);
+      // si Expected a number in: $limit: null
+      if(error.message.includes('Expected a number in: $limit')) {
+        throw new BadRequestException('El limit debe ser un número ');
+      }
+
+
+      throw new InternalServerErrorException('Error al crear la sesión de estudio profundo');
+    }
+
+
   }
 
 
   async createRelaxSession(user: User, config: any): Promise<Phrase[]> {
-    const { playlistId, orderBy, limit } = config;
+    const { playlistId, orderBy, limit , groupId} = config;
 
     const numericLimit = Number(limit) || 10;
 
@@ -423,6 +455,10 @@ export class PhrasesService {
     }
 
     const pipeline: any[] = [{ $match: matchFilter }];
+
+    if (groupId) {
+      pipeline[0].$match.groupId = groupId;
+    }
 
     // 2. Ordenamiento
     if (orderBy === 'random') {

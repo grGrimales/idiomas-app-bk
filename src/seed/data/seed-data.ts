@@ -5,6 +5,7 @@ export const SEED_PHRASES = [
   {
     originalText: 'abuela',
     level: 'basico',
+    groupId: 1,
     originAudioUrl: 'https://res.cloudinary.com/dcxto1nnl/video/upload/v1749083365/idiomas-app/test/ElevenLabs_2025-06-05T00_28_38_Alberto_Rodriguez_pvc_sp100_s30_sb85_se30_b_m2_t0sm2c.mp3',
     translations: [
       {
@@ -22,6 +23,7 @@ export const SEED_PHRASES = [
   {
     originalText: 'abuelo',
     level: 'basico',
+    groupId: 1,
     originAudioUrl: 'https://res.cloudinary.com/dcxto1nnl/video/upload/v1749084134/idiomas-app/test/ElevenLabs_2025-06-05T00_41_24_Alberto_Rodriguez_pvc_sp100_s30_sb85_se30_b_m2_ujavig.mp3',
     translations: [
       {
@@ -39,6 +41,7 @@ export const SEED_PHRASES = [
   {
     originalText: 'papá',
     level: 'basico',
+    groupId: 1,
     originAudioUrl: 'https://res.cloudinary.com/dcxto1nnl/video/upload/v1749084134/idiomas-app/test/ElevenLabs_2025-06-05T00_41_38_Alberto_Rodriguez_pvc_sp100_s30_sb85_se30_b_m2_slusqc.mp3',
     translations: [
       {
@@ -56,6 +59,7 @@ export const SEED_PHRASES = [
   {
     originalText: 'mamá',
     level: 'basico',
+    groupId: 2,
     originAudioUrl: 'https://res.cloudinary.com/dcxto1nnl/video/upload/v1749084248/idiomas-app/test/ElevenLabs_2025-06-05T00_41_54_Alberto_Rodriguez_pvc_sp100_s30_sb85_se30_b_m2_dr5vqc.mp3',
     translations: [
       {
@@ -73,6 +77,7 @@ export const SEED_PHRASES = [
   {
     originalText: 'hermano',
     level: 'basico',
+    groupId: 2,
     originAudioUrl: 'https://res.cloudinary.com/dcxto1nnl/video/upload/v1749173031/idiomas-app/grupo-1/1/espanol/1_elz6ly.mp3',
     translations: [
       {
@@ -90,6 +95,7 @@ export const SEED_PHRASES = [
   {
     originalText: 'padres',
     level: 'basico',
+    groupId: 2,
     originAudioUrl: 'https://res.cloudinary.com/dcxto1nnl/video/upload/v1749173026/idiomas-app/grupo-1/1/espanol/2_ctfitz.mp3',
     translations: [
       {
@@ -107,6 +113,7 @@ export const SEED_PHRASES = [
   {
     originalText: 'hermana',
     level: 'basico',
+    groupId: 2,
     originAudioUrl: 'https://res.cloudinary.com/dcxto1nnl/video/upload/v1749173027/idiomas-app/grupo-1/1/espanol/3_ry7ogi.mp3',
     translations: [
       {

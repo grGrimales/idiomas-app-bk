@@ -29,6 +29,16 @@ export class Phrase extends Document {
 
   @Prop({ type: String, required: false }) // <-- AÑADE ESTA LÍNEA
   originAudioUrl?: string;
+
+
+  @Prop({ type: Number, required: true })
+  groupId: number;
+  
+
+
+
+
+
 }
 
 export const PhraseSchema = SchemaFactory.createForClass(Phrase);

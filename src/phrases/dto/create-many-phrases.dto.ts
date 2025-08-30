@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, ValidateNested, ArrayNotEmpty, IsString, IsOptional } from 'class-validator';
+import { IsArray, ValidateNested, ArrayNotEmpty, IsString, IsOptional, IsNotEmpty } from 'class-validator';
 import { CreatePhraseDto } from './create-phrase.dto';
 
 export class CreateManyPhrasesDto {
@@ -13,4 +13,14 @@ export class CreateManyPhrasesDto {
   @IsString({ each: true })
   @IsOptional() // Hacemos que este campo sea opcional
   playlists?: string[];
+
+
+  /*
+  @Prop({ type: Number, required: true })
+  groupId: number;
+  */
+
+  @IsNotEmpty()
+  groupId: number;
+
 }

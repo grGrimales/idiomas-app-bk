@@ -30,4 +30,12 @@ export class PlaylistsController {
   ) {
     return this.playlistsService.addPhrases(id, addPhrasesDto, user);
   }
+
+
+
+  // obtener grupos por id de playlist
+  @Get(':id/groups')
+  getGroupsByPlaylistId(@Param('id', ParseMongoIdPipe) id: string) {
+    return this.playlistsService.getGroupsByPlaylistId(id);
+  } 
 }

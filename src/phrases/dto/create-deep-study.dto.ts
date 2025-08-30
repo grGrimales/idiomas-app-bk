@@ -16,4 +16,17 @@ export class CreateDeepStudyDto {
   @Min(1)
   @Max(50)
   limit: number;
+/*
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  groupId?: number;
+  */
+
+  // groupId que es un array de números
+  @IsOptional()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  groupIds?: number[];
+
 }

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Playlist } from './schemas/playlist.schema';
 import { User } from '../auth/schemas/user.schema';
@@ -11,8 +11,8 @@ import { Model, Types } from 'mongoose';
 export class PlaylistsService {
   constructor(
     @InjectModel(Playlist.name) private playlistModel: Model<Playlist>,
-        @InjectModel(Phrase.name) private phraseModel: Model<Phrase>,
-  ) {}
+    @InjectModel(Phrase.name) private phraseModel: Model<Phrase>,
+  ) { }
 
   // Encuentra el playlist por defecto de un usuario, si no existe, lo crea.
   async findOrCreateDefaultPlaylist(user: User): Promise<Playlist> {
@@ -37,8 +37,13 @@ export class PlaylistsService {
   }
 
 
-   async findAllByUser(user: User): Promise<Playlist[]> {
-    return this.playlistModel.find({ user: user._id }).exec();
+  async findAllByUser(user: User): Promise<Playlist[]> {
+    return this.playlistModel.find({
+      $or: [
+        { user: user._id },          // El usuario es el dueño
+        { sharedWith: user._id }     // El playlist ha sido compartido con el usuario
+      ]
+    }).exec();
   }
 
   async create(createPlaylistDto: CreatePlaylistDto, user: User): Promise<Playlist> {
@@ -67,7 +72,7 @@ export class PlaylistsService {
   }
 
 
-   async addPhrases(
+  async addPhrases(
     playlistId: string,
     addPhrasesDto: AddPhrasesToPlaylistDto,
     user: User,
@@ -94,18 +99,52 @@ export class PlaylistsService {
     }
 
     // 3. Añadimos solo las frases que no estén ya en el playlist para evitar duplicados.
-  const existingPhraseIdsInPlaylist = new Set(playlist.phrases.map(id => id.toString()));
+    const existingPhraseIdsInPlaylist = new Set(playlist.phrases.map(id => id.toString()));
     const newPhraseIdsAsStrings = phraseIds.filter(id => !existingPhraseIdsInPlaylist.has(id));
 
     if (newPhraseIdsAsStrings.length > 0) {
       // Convierte los strings a ObjectIds
       const newPhraseObjectIds = newPhraseIdsAsStrings.map(id => new Types.ObjectId(id));
-      
+
       // Añade los ObjectIds al array
       playlist.phrases.push(...newPhraseObjectIds);
       await playlist.save();
     }
     return playlist.populate({ path: 'phrases', model: 'Phrase' });
   }
+
+
+
+  async getGroupsByPlaylistId(playlistId: string) {
+
+    if (!playlistId) {
+      throw new BadRequestException('ID de playlist es requerido');
+    }
+    if (!Types.ObjectId.isValid(playlistId)) {
+      throw new BadRequestException('ID de playlist inválido');
+    }
+
+    // [Nest] 33156  - 30/08/2025, 14:47:36   ERROR [ExceptionsHandler] Cannot populate path `groups` because it is not in your schema. Set the `strictPopulate` option to false to override.
+    const playList = await this.playlistModel.findById(playlistId).exec();
+
+
+    const phrases = await this.phraseModel.find({ _id: { $in: playList.phrases } }).exec();
+
+    const uniqueGroupsByPhrase = Array.from(new Set(phrases.map(phrase => phrase.groupId)));
+
+
+    /*
+    interface Group {
+  _id: string;
+  name: string;
+}*/
+    return uniqueGroupsByPhrase.map((groupId) => ({
+      _id: groupId,
+      name: `${groupId}`
+    }));
+  }
+
+
+  
 
 }
