@@ -36,15 +36,24 @@ export class PlaylistsService {
     return defaultPlaylist;
   }
 
+async findAllByUser(user: any): Promise<Playlist[]> {
+  // --- 👇 AÑADE ESTOS LOGS PARA DEPURAR ---
+  console.log('ID del usuario que llega al servicio:', user._id);
+  console.log(
+    '¿Es un ObjectId?:', 
+    user._id instanceof Types.ObjectId ? 'SÍ' : 'NO, es un string'
+  );
 
-  async findAllByUser(user: User): Promise<Playlist[]> {
-    return this.playlistModel.find({
-      $or: [
-        { user: user._id },          // El usuario es el dueño
-        { sharedWith: user._id }     // El playlist ha sido compartido con el usuario
-      ]
-    }).exec();
-  }
+   const allPlaylists = await this.playlistModel.find().exec();
+
+   // filtrar el play list donde  _id = user._id or isDefault contenga true
+   const userPlaylists = allPlaylists.filter(playlist => 
+     playlist.user.equals(user._id) || playlist.sharedWith.includes(user._id) || playlist.isDefault
+   );
+
+
+   return userPlaylists;
+}
 
   async create(createPlaylistDto: CreatePlaylistDto, user: User): Promise<Playlist> {
     const { name } = createPlaylistDto;

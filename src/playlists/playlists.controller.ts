@@ -10,7 +10,7 @@ import { ParseMongoIdPipe } from '../common/pipes/parse-mongo-id.pipe';
 @Controller('playlists')
 @UseGuards(AuthGuard()) // Proteger todas las rutas de este controlador
 export class PlaylistsController {
-  constructor(private readonly playlistsService: PlaylistsService) {}
+  constructor(private readonly playlistsService: PlaylistsService) { }
 
   @Post()
   create(@Body() createPlaylistDto: CreatePlaylistDto, @GetUser() user: User) {
@@ -22,9 +22,9 @@ export class PlaylistsController {
     return this.playlistsService.findAllByUser(user);
   }
 
-    @Post(':id/phrases')
+  @Post(':id/phrases')
   addPhrases(
-    @Param('id', ParseMongoIdPipe ) id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
     @Body() addPhrasesDto: AddPhrasesToPlaylistDto,
     @GetUser() user: User
   ) {
@@ -37,5 +37,5 @@ export class PlaylistsController {
   @Get(':id/groups')
   getGroupsByPlaylistId(@Param('id', ParseMongoIdPipe) id: string) {
     return this.playlistsService.getGroupsByPlaylistId(id);
-  } 
+  }
 }
