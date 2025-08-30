@@ -37,12 +37,6 @@ export class PlaylistsService {
   }
 
 async findAllByUser(user: any): Promise<Playlist[]> {
-  // --- 👇 AÑADE ESTOS LOGS PARA DEPURAR ---
-  console.log('ID del usuario que llega al servicio:', user._id);
-  console.log(
-    '¿Es un ObjectId?:', 
-    user._id instanceof Types.ObjectId ? 'SÍ' : 'NO, es un string'
-  );
 
    const allPlaylists = await this.playlistModel.find().exec();
 

@@ -65,7 +65,7 @@ export class PhrasesService {
 
 
   async createMany(createManyDto: CreateManyPhrasesDto, user: User) {
-    const { phrases: dtos, playlists: playlistNames = [] , groupId} = createManyDto;
+    const { phrases: dtos, playlists: playlistNames = [], groupId } = createManyDto;
 
     console.log('createMany called with dtos:', groupId);
 
@@ -86,7 +86,7 @@ export class PhrasesService {
       console.log('groupId 2 :', groupId);
 
       if (newPlaylistNames.length > 0) {
-        const newPlaylistsToCreate = newPlaylistNames.map(name => ({ name, user: user._id, phrases: []  })); // <-- AÑADE groupId aquí
+        const newPlaylistsToCreate = newPlaylistNames.map(name => ({ name, user: user._id, phrases: [] })); // <-- AÑADE groupId aquí
         const createdPlaylists = await this.playlistModel.insertMany(newPlaylistsToCreate);
         targetPlaylistIds.push(...createdPlaylists.map(p => p._id));
       }
@@ -349,82 +349,83 @@ export class PhrasesService {
 
   // ... (dentro de la clase PhrasesService)
   async createDeepStudySession(user: User, options: CreateDeepStudyDto): Promise<Phrase[]> {
- 
+
     try {
-         const { playlistId, orderBy, limit, groupIds } = options;
+      const { playlistId, orderBy, limit, groupIds } = options;
 
 
-         // listado de frases por play list
+      // listado de frases por play list
 
-    // Objeto base para el filtro inicial
-    const matchFilter: any = {
-      createdBy: user._id,
-      // 👇 === ¡AQUÍ ESTÁ LA CORRECCIÓN! === 👇
-      // Se asegura que ambos audios de traducción existan y no sean el placeholder.
-      // Ya no se requiere el 'originAudioUrl'.
-      'translations.0.audios': {
-        $all: [
-          { $elemMatch: { gender: "femenino", audioUrl: { $ne: 'audio.pendiente.mp3' } } },
-          { $elemMatch: { gender: "masculino", audioUrl: { $ne: 'audio.pendiente.mp3' } } }
-        ]
+      // Objeto base para el filtro inicial
+      const matchFilter: any = {
+        createdBy: user._id,
+        // 👇 === ¡AQUÍ ESTÁ LA CORRECCIÓN! === 👇
+        // Se asegura que ambos audios de traducción existan y no sean el placeholder.
+        // Ya no se requiere el 'originAudioUrl'.
+        'translations.0.audios': {
+          $all: [
+            { $elemMatch: { gender: "femenino", audioUrl: { $ne: 'audio.pendiente.mp3' } } },
+            { $elemMatch: { gender: "masculino", audioUrl: { $ne: 'audio.pendiente.mp3' } } }
+          ]
+        }
+      };
+
+      // 1. Filtrar por Playlist (si se proporciona)
+      if (playlistId) {
+        const playList = await this.playlistsService.findAllByUser(user);
+        const phrasesID = playList.map(playlist => playlist.phrases).flat();
+        if (!playList) throw new NotFoundException('Playlist no encontrada');
+          matchFilter._id = { $in: phrasesID };
       }
-    };
-
-    // 1. Filtrar por Playlist (si se proporciona)
-    if (playlistId) {
-      const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
-      if (!playlist) throw new NotFoundException('Playlist no encontrada');
-      matchFilter._id = { $in: playlist.phrases };
-    }
 
 
-    const pipeline: any[] = [{ $match: matchFilter }];
+      const pipeline: any[] = [{ $match: matchFilter }];
 
 
-    if (groupIds) {
-     // groupID es un array de numeros
+      if (groupIds) {
+        // groupID es un array de numeros
 
-     pipeline[0].$match.groupId = { $in: groupIds };
+        pipeline[0].$match.groupId = { $in: groupIds };
 
-    }
+      }
 
-    // 2. Ordenamiento
-    if (orderBy === 'random') {
-      pipeline.push({ $sample: { size: limit } });
+      // 2. Ordenamiento
+      if (orderBy === 'random') {
+        pipeline.push({ $sample: { size: limit } });
 
-    } else { // 'least_studied'
-      pipeline.push(
-        {
-          $lookup: {
-            from: 'userphrasestats',
-            let: { phraseId: '$_id' },
-            pipeline: [
-              { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
-            ],
-            as: 'stats',
+      } else { // 'least_studied'
+        pipeline.push(
+          {
+            $lookup: {
+              from: 'userphrasestats',
+              let: { phraseId: '$_id' },
+              pipeline: [
+                { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
+              ],
+              as: 'stats',
+            },
           },
-        },
-        { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
-        // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
-        { $sort: { 'stats.deepStudyCount': 1 } },
-        { $limit: limit }
-      );
-    }
+          { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
+          // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
+          { $sort: { 'stats.deepStudyCount': 1 } },
+          { $limit: limit }
+        );
+      }
 
 
 
-    // 3. Obtener y popular los resultados
-    const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
-   // await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
+      // 3. Obtener y popular los resultados
+      const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
+      // await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
 
 
 
-    return aggregatedPhrases;
-      
+      return aggregatedPhrases;
+
     } catch (error) {
       console.error('Error al crear la sesión de estudio profundo:', error);
       // si Expected a number in: $limit: null
-      if(error.message.includes('Expected a number in: $limit')) {
+      if (error.message.includes('Expected a number in: $limit')) {
         throw new BadRequestException('El limit debe ser un número ');
       }
 
@@ -437,7 +438,7 @@ export class PhrasesService {
 
 
   async createRelaxSession(user: User, config: any): Promise<Phrase[]> {
-    const { playlistId, orderBy, limit , groupId} = config;
+    const { playlistId, orderBy, limit, groupId } = config;
 
     const numericLimit = Number(limit) || 10;
 
@@ -454,11 +455,11 @@ export class PhrasesService {
 
     // 1. Filtrar por Playlist (si se proporciona)
     if (playlistId) {
-      const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
-      if (!playlist) throw new NotFoundException('Playlist no encontrada');
-      matchFilter._id = { $in: playlist.phrases };
-    }
-
+        const playList = await this.playlistsService.findAllByUser(user);
+        const phrasesID = playList.map(playlist => playlist.phrases).flat();
+        if (!playList) throw new NotFoundException('Playlist no encontrada');
+          matchFilter._id = { $in: phrasesID };
+      }
     const pipeline: any[] = [{ $match: matchFilter }];
 
     if (groupId) {
