@@ -67,6 +67,8 @@ export class PhrasesService {
   async createMany(createManyDto: CreateManyPhrasesDto, user: User) {
     const { phrases: dtos, playlists: playlistNames = [] , groupId} = createManyDto;
 
+    console.log('createMany called with dtos:', groupId);
+
     const createdPhrases = [];
     const failedPhrases = [];
 
@@ -81,8 +83,10 @@ export class PhrasesService {
 
       const newPlaylistNames = playlistNames.filter(name => !existingPlaylistNames.has(name));
 
+      console.log('groupId 2 :', groupId);
+
       if (newPlaylistNames.length > 0) {
-        const newPlaylistsToCreate = newPlaylistNames.map(name => ({ name, user: user._id, phrases: [] , groupId: groupId })); // <-- AÑADE groupId aquí
+        const newPlaylistsToCreate = newPlaylistNames.map(name => ({ name, user: user._id, phrases: []  })); // <-- AÑADE groupId aquí
         const createdPlaylists = await this.playlistModel.insertMany(newPlaylistsToCreate);
         targetPlaylistIds.push(...createdPlaylists.map(p => p._id));
       }
@@ -117,6 +121,7 @@ export class PhrasesService {
         level: dto.level,
         createdBy: user._id,
         translations: [newTranslation],
+        groupId: groupId,
       });
       existingTexts.add(dto.originalText);
     }
