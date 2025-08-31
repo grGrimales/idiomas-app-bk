@@ -278,7 +278,7 @@ export class PhrasesService {
   }
 
   async createAssessmentSession(user: User, options: CreateAssessmentDto): Promise<Phrase[]> {
-    const { playlistId, orderBy, limit } = options;
+    const { playlistId, orderBy, limit, groupIds } = options;
 
 
     const pipeline: any[] = [];
@@ -288,11 +288,11 @@ export class PhrasesService {
       const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
       if (!playlist) throw new NotFoundException('Playlist no encontrada');
       // filtrar por play list y las frases que contiene audios completos
-      pipeline.push({ $match: { _id: { $in: playlist.phrases }, createdBy: user._id, 'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
+      pipeline.push({ $match: { _id: { $in: playlist.phrases },  'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
 
     } else {
       // Si no hay playlist, filtramos por todas las frases del usuario
-      pipeline.push({ $match: { createdBy: user._id, 'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
+      pipeline.push({ $match: {  'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
     }
 
     // --- 2. Ordenamiento ---
