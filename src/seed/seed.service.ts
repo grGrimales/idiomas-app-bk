@@ -25,11 +25,11 @@ export class SeedService {
 
     // 2. Crear un usuario de prueba
     const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash('password123', salt);
+    const hashedPassword = await bcrypt.hash('12345678', salt);
     const user = await this.userModel.create({
-      email: 'user@example.com',
+      email: 'carlos@example.com',
       password: hashedPassword,
-      fullName: 'Test User',
+      fullName: 'carlos',
       isActive: true,
     });
 
@@ -45,7 +45,7 @@ export class SeedService {
     await this.playlistModel.create({
       name: 'Mis Frases',
       isDefault: true,
-      user: user._id,
+      user: [user._id],
       phrases: createdPhrases.map(p => p._id),
     });
 

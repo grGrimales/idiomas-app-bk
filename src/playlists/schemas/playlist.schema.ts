@@ -12,16 +12,15 @@ export class Playlist extends Document {
   isDefault: boolean;
 
   // Referencia al dueño del playlist
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
-  user: User;
+
+  @Prop([{ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true }])
+  user: Types.ObjectId[];
 
   // Array de referencias a las frases
    @Prop([{ type: MongooseSchema.Types.ObjectId, ref: 'Phrase' }])
   phrases: Types.ObjectId[];
 
 
-    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'User' }] })
-  sharedWith: User[];
 
 }
 

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Playlist } from './schemas/playlist.schema';
 import { User } from '../auth/schemas/user.schema';
@@ -36,17 +36,14 @@ export class PlaylistsService {
     return defaultPlaylist;
   }
 
-  async findAllByUser(user: any): Promise<Playlist[]> {
+  async findAllByUser(user: User): Promise<Playlist[]> {
 
-    const allPlaylists = await this.playlistModel.find().exec();
-
-    // filtrar el play list donde  _id = user._id or isDefault contenga true
-    const userPlaylists = allPlaylists.filter(playlist =>
-      playlist.user.equals(user._id) || playlist.sharedWith.includes(user._id)
-    );
+    const allPlayList = await this.playlistModel.find().exec();
 
 
-    return userPlaylists;
+    const playlists = await this.playlistModel.find({ user: { $in: user._id } }).exec();
+
+    return playlists;
   }
 
   async create(createPlaylistDto: CreatePlaylistDto, user: User): Promise<Playlist> {
@@ -66,10 +63,13 @@ export class PlaylistsService {
     // 3. Si no existe, procedemos a crearlo.
     const newPlaylist = new this.playlistModel({
       name,
-      user: user._id,
+      user: [user._id],
       isDefault: false,
       phrases: [],
     });
+
+
+
 
     return newPlaylist.save();
   }
