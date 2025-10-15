@@ -65,7 +65,7 @@ export class PhrasesService {
 
 
   async createMany(createManyDto: CreateManyPhrasesDto, user: User) {
-    const { phrases: dtos, playlists: playlistNames = [] , groupId} = createManyDto;
+    const { phrases: dtos, playlists: playlistNames = [], groupId } = createManyDto;
 
     const createdPhrases = [];
     const failedPhrases = [];
@@ -288,12 +288,18 @@ export class PhrasesService {
       const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
       if (!playlist) throw new NotFoundException('Playlist no encontrada');
       // filtrar por play list y las frases que contiene audios completos
-      pipeline.push({ $match: { _id: { $in: playlist.phrases },  'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
+      pipeline.push({ $match: { _id: { $in: playlist.phrases }, 'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
 
     } else {
       // Si no hay playlist, filtramos por todas las frases del usuario
-      pipeline.push({ $match: {  'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
+      pipeline.push({ $match: { 'translations.0.audios.0.audioUrl': { $ne: 'audio.pendiente.mp3' }, 'translations.0.audios.1.audioUrl': { $ne: 'audio.pendiente.mp3' } } });
     }
+
+    // filtrar por groupIds si se proporcionan
+    if (groupIds && groupIds.length > 0) {
+      pipeline[0].$match.groupId = { $in: groupIds };
+    }
+
 
     // --- 2. Ordenamiento ---
     if (orderBy === 'random') {
@@ -363,6 +369,11 @@ export class PhrasesService {
       }
     };
 
+    // filtrar por groupIds si se proporcionan
+    if (groupIds && groupIds.length > 0) {
+      matchFilter.groupId = { $in: groupIds };
+    }
+
     // 1. Filtrar por Playlist (si se proporciona)
     if (playlistId) {
       const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
@@ -406,6 +417,8 @@ export class PhrasesService {
     const { playlistId, orderBy, limit } = config;
 
     const numericLimit = Number(limit) || 10;
+
+
 
     // Filtro base para las frases del usuario
     const matchFilter: any = {

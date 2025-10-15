@@ -20,6 +20,6 @@ export class CreateDeepStudyDto {
   @IsOptional()
   @IsInt({ each: true })
   @Min(0, { each: true })
-  groupIds?: number;
+  groupIds?: number[];
 
 }

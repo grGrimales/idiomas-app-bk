@@ -24,6 +24,7 @@ export class PhrasesController {
     return this.phrasesService.deleteAudio(id, index, gender);
   }
 
+  
   @Patch(':id/translations/:index/audio/:gender')
   // El FileInterceptor ahora usará automáticamente la configuración del módulo
   @UseInterceptors(FileInterceptor('file'))

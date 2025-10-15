@@ -28,4 +28,14 @@ export class CreatePhraseDto {
   // groupId es requerido
   @IsNotEmpty()
   groupId: number;
+
+  // phoneticSpelling
+  @IsString()
+  @IsOptional()
+  phoneticSpelling?: string;
+
+  // description
+  @IsString()
+  @IsOptional()
+  description?: string;
 }
