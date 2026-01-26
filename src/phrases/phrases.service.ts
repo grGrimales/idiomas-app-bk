@@ -13,6 +13,9 @@ import { Playlist } from 'src/playlists/schemas/playlist.schema';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { CreateDeepStudyDto } from './dto/create-deep-study.dto';
 import { GetPhrasesQueryDto } from './dto/get-phrases-query.dto';
+import { AwsPollyService } from 'src/common/services/aws-polly.service';
+import { CloudinaryService } from 'src/common/services/cloudinary.service';
+import { GenerateAudioDto } from './dto/generate-audio.dto';
 
 @Injectable()
 export class PhrasesService {
@@ -20,6 +23,9 @@ export class PhrasesService {
     @InjectModel(Phrase.name) private phraseModel: Model<Phrase>,
     @InjectModel(Playlist.name) private playlistModel: Model<Playlist>,
     private readonly playlistsService: PlaylistsService, // Inyectamos el servicio de playlists
+
+    private readonly awsPollyService: AwsPollyService,
+    private readonly cloudinaryService: CloudinaryService,
   ) { }
 
   async create(createPhraseDto: CreatePhraseDto, user: User): Promise<Phrase> {
@@ -467,6 +473,58 @@ export class PhrasesService {
     await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
 
     return aggregatedPhrases;
+  }
+
+
+
+
+  async generateAndSaveAudio(user: User, phraseId: string, generateDto: GenerateAudioDto): Promise<Phrase> {
+    const { voiceId, target, index, gender } = generateDto;
+
+    // 1. Buscar la frase
+    const phrase = await this.phraseModel.findOne({ _id: phraseId, createdBy: user._id });
+    if (!phrase) {
+      throw new NotFoundException(`Frase no encontrada o no tienes permisos.`);
+    }
+
+    let textToSynthesize = '';
+
+    // 2. Determinar el texto a convertir
+    if (target === 'origin') {
+      textToSynthesize = phrase.originalText;
+    } else {
+      // Validaciones para traducciones
+      if (index === undefined || !phrase.translations[index]) {
+        throw new NotFoundException(`La traducción en el índice ${index} no existe.`);
+      }
+      textToSynthesize = phrase.translations[index].translatedText;
+    }
+
+    // 3. Generar Audio con AWS Polly
+    const audioBuffer = await this.awsPollyService.generateAudio(textToSynthesize, voiceId);
+
+    // 4. Subir a Cloudinary (directamente desde el Buffer)
+    // El folder lo definimos aquí o en el servicio. Polly + ID para evitar colisiones
+    const uploadResult = await this.cloudinaryService.uploadBuffer(audioBuffer, 'idiomas-app/generated-audios');
+
+    // 5. Guardar la URL en la base de datos
+    if (target === 'origin') {
+      phrase.originAudioUrl = uploadResult.secure_url;
+    } else {
+      // Lógica para actualizar el audio específico dentro del array de traducciones
+      if (!gender) throw new BadRequestException('El género es requerido para audios de traducción.');
+
+      const audioToUpdate = phrase.translations[index].audios.find(a => a.gender === gender);
+
+      if (!audioToUpdate) {
+        // Si no existe el slot, podrías crearlo, pero basándonos en tu lógica anterior, lanzamos error
+        throw new NotFoundException(`No se encontró slot de audio para género ${gender} en la traducción.`);
+      }
+
+      audioToUpdate.audioUrl = uploadResult.secure_url;
+    }
+
+    return await phrase.save();
   }
 
 

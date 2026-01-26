@@ -12,6 +12,10 @@ import { PhrasesController } from './phrases.controller';
 import { PhrasesService } from './phrases.service';
 import { Playlist, PlaylistSchema } from 'src/playlists/schemas/playlist.schema';
 
+import { AwsPollyService } from '../common/services/aws-polly.service';
+import { CloudinaryService } from '../common/services/cloudinary.service';
+import { CloudinaryProvider } from '../common/config/cloudinary.config'; // Asegúrate de importar esto también si no está en un SharedModule
+
 @Module({
   imports: [
     // Importamos los esquemas que se usarán en este módulo
@@ -22,7 +26,7 @@ import { Playlist, PlaylistSchema } from 'src/playlists/schemas/playlist.schema'
     ]),
     AuthModule,
     PlaylistsModule,
-    
+
     // CONFIGURACIÓN CENTRALIZADA DE MULTER Y CLOUDINARY
     MulterModule.registerAsync({
       imports: [ConfigModule], // Importamos ConfigModule para usar las variables de entorno
@@ -49,7 +53,9 @@ import { Playlist, PlaylistSchema } from 'src/playlists/schemas/playlist.schema'
     }),
   ],
   controllers: [PhrasesController],
-  providers: [PhrasesService],
-   exports: [MongooseModule]
+  providers: [PhrasesService, AwsPollyService,     // <--- Registrado
+    CloudinaryService,   // <--- Registrado
+    CloudinaryProvider],
+  exports: [MongooseModule]
 })
-export class PhrasesModule {}
+export class PhrasesModule { }

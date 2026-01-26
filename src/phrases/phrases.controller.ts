@@ -9,6 +9,7 @@ import { ParseMongoIdPipe } from '../common/pipes/parse-mongo-id.pipe';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/schemas/user.schema';
 import { GetPhrasesQueryDto } from './dto/get-phrases-query.dto';
+import { GenerateAudioDto } from './dto/generate-audio.dto';
 
 @Controller('phrases')
 @UseGuards(AuthGuard()) // Proteger todas las rutas de este controlador
@@ -24,7 +25,7 @@ export class PhrasesController {
     return this.phrasesService.deleteAudio(id, index, gender);
   }
 
-  
+
   @Patch(':id/translations/:index/audio/:gender')
   // El FileInterceptor ahora usará automáticamente la configuración del módulo
   @UseInterceptors(FileInterceptor('file'))
@@ -83,6 +84,16 @@ export class PhrasesController {
   createRelaxSession(@Body() config: any, @Req() req: any) {
     const user = req.user as User;
     return this.phrasesService.createRelaxSession(user, config);
+  }
+
+
+  @Post(':id/generate-audio')
+  generateAudio(
+    @Param('id', ParseMongoIdPipe) id: string,
+    @Body() generateAudioDto: GenerateAudioDto,
+    @GetUser() user: User
+  ) {
+    return this.phrasesService.generateAndSaveAudio(user, id, generateAudioDto);
   }
 
 }
