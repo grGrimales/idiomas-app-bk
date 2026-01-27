@@ -76,10 +76,11 @@ export class PhrasesService {
     const createdPhrases = [];
     const failedPhrases = [];
 
-    const targetPlaylistIds = []; // <-- CAMBIO 2: Dejar que TypeScript infiera el tipo
+    const targetPlaylistIds = [];
     const defaultPlaylist = await this.playlistsService.findOrCreateDefaultPlaylist(user);
     targetPlaylistIds.push(defaultPlaylist._id);
 
+    // 1. Gestión de Playlists (Se mantiene igual, previo a las frases)
     if (playlistNames.length > 0) {
       const existingPlaylists = await this.playlistModel.find({ user: user._id, name: { $in: playlistNames } });
       const existingPlaylistNames = new Set(existingPlaylists.map(p => p.name));
@@ -98,14 +99,14 @@ export class PhrasesService {
     const existingPhrasesInDb = await this.phraseModel.find({ originalText: { $in: originalTexts } });
     const existingTexts = new Set(existingPhrasesInDb.map(p => p.originalText));
 
-    const phrasesToCreate = [];
+    // 2. Bucle secuencial para inserción ordenada
     for (const dto of dtos) {
+      // Verificación de duplicados (incluyendo duplicados dentro del mismo lote actual)
       if (existingTexts.has(dto.originalText)) {
         failedPhrases.push({ phrase: dto.originalText, reason: 'La frase ya existe.' });
         continue;
       }
 
-      // 3. Re-implementa la creación de 'newTranslation' que estaba vacía.
       const defaultAudios: Audio[] = [
         { gender: 'femenino', audioUrl: 'audio.pendiente.mp3' },
         { gender: 'masculino', audioUrl: 'audio.pendiente.mp3' },
@@ -115,23 +116,37 @@ export class PhrasesService {
         language: dto.translation.language,
         translatedText: dto.translation.text,
         imageUrl: '/default/image.png',
-        audios: defaultAudios, // Pasamos los audios con el audioUrl vacío
+        audios: defaultAudios,
       };
 
-      phrasesToCreate.push({
-        originalText: dto.originalText,
-        level: dto.level,
-        createdBy: user._id,
-        translations: [newTranslation],
-        groupId
-      });
-      existingTexts.add(dto.originalText);
+      try {
+        // --- CAMBIO CLAVE ---
+        // Usamos .create() con await dentro del bucle.
+        // Esto detiene la ejecución hasta que la base de datos confirme la inserción
+        // antes de pasar al siguiente DTO.
+        const newPhrase = await this.phraseModel.create({
+          originalText: dto.originalText,
+          level: dto.level,
+          createdBy: user._id,
+          translations: [newTranslation],
+          groupId
+        });
+
+        createdPhrases.push(newPhrase);
+        existingTexts.add(dto.originalText); // Actualizamos el Set para evitar duplicados en este mismo loop
+
+      } catch (error) {
+        // Capturamos errores individuales para no detener todo el proceso si una falla
+        failedPhrases.push({
+          phrase: dto.originalText,
+          reason: 'Error en base de datos: ' + error.message
+        });
+      }
     }
 
-    if (phrasesToCreate.length > 0) {
-      const newDocs = await this.phraseModel.insertMany(phrasesToCreate);
-      createdPhrases.push(...newDocs);
-      const newPhraseIds = newDocs.map(doc => doc._id);
+    // 3. Actualización de Playlists (Se hace al final con todas las IDs recolectadas)
+    if (createdPhrases.length > 0) {
+      const newPhraseIds = createdPhrases.map(doc => doc._id);
 
       await this.playlistModel.updateMany(
         { _id: { $in: targetPlaylistIds } },
@@ -141,6 +156,7 @@ export class PhrasesService {
 
     return { createdPhrases, failedPhrases };
   }
+
 
 
   async uploadAudio(
