@@ -17,8 +17,18 @@ import { AwsPollyService } from 'src/common/services/aws-polly.service';
 import { CloudinaryService } from 'src/common/services/cloudinary.service';
 import { GenerateAudioDto } from './dto/generate-audio.dto';
 
+
+export interface RelaxSessionConfig {
+  playlistId?: string;
+  orderBy?: 'random' | 'least_studied';
+  limit?: number | string;
+  groupIds?: number[];
+}
+
 @Injectable()
 export class PhrasesService {
+
+  private readonly PENDING_AUDIO_FILE = 'audio.pendiente.mp3';
   constructor(
     @InjectModel(Phrase.name) private phraseModel: Model<Phrase>,
     @InjectModel(Playlist.name) private playlistModel: Model<Playlist>,
@@ -436,63 +446,19 @@ export class PhrasesService {
     return aggregatedPhrases;
   }
 
+  async createRelaxSession(user: User, config: RelaxSessionConfig): Promise<Phrase[]> {
 
-  async createRelaxSession(user: User, config: any): Promise<Phrase[]> {
-    const { playlistId, orderBy, limit } = config;
+    const limit = Number(config.limit) || 10;
 
-    const numericLimit = Number(limit) || 10;
+    // Delegamos la construcción del pipeline a un método dedicado
+    const pipeline = await this.buildAggregationPipeline(user, config, limit);
 
-
-
-    // Filtro base para las frases del usuario
-    const matchFilter: any = {
-      'translations.0.audios': {
-        $all: [
-          { $elemMatch: { gender: "femenino", audioUrl: { $ne: 'audio.pendiente.mp3' } } },
-          { $elemMatch: { gender: "masculino", audioUrl: { $ne: 'audio.pendiente.mp3' } } }
-        ]
-      }
-    };
-
-    // 1. Filtrar por Playlist (si se proporciona)
-    if (playlistId) {
-      const playlist = await this.playlistModel.findOne({ _id: playlistId, user: user._id });
-      if (!playlist) throw new NotFoundException('Playlist no encontrada');
-      matchFilter._id = { $in: playlist.phrases };
-    }
-
-    const pipeline: any[] = [{ $match: matchFilter }];
-
-    // 2. Ordenamiento
-    if (orderBy === 'random') {
-      pipeline.push({ $sample: { size: numericLimit } });
-    } else { // 'least_studied'
-
-      pipeline.push(
-        {
-          $lookup: {
-            from: 'userphrasestats',
-            let: { phraseId: '$_id' },
-            pipeline: [
-              { $match: { $expr: { $and: [{ $eq: ['$phrase', '$$phraseId'] }, { $eq: ['$user', user._id] }] } } },
-            ],
-            as: 'stats',
-          },
-        },
-        { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
-        // Ordenamos por 'deepStudyCount'. Los que no tengan stats (null) irán primero.
-        { $sort: { 'stats.relaxListenCount': 1 } },
-        { $limit: numericLimit }
-      );
-    }
-
-    // 3. Obtener y popular los resultados
+    // Ejecutamos la consulta
     const aggregatedPhrases = await this.phraseModel.aggregate(pipeline);
-    await this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
 
-    return aggregatedPhrases;
+    // Retornamos los resultados poblados
+    return this.phraseModel.populate(aggregatedPhrases, { path: 'translations' });
   }
-
 
 
 
@@ -546,5 +512,93 @@ export class PhrasesService {
   }
 
 
+
+  private async buildAggregationPipeline(
+    user: User,
+    config: RelaxSessionConfig,
+    limit: number
+  ): Promise<any[]> {
+    const matchFilter = this.getBaseAudioFilter();
+
+
+    // Convertimos el ObjectId del usuario a string para comparaciones posteriores
+    const userIdString = String(user._id);
+
+    // Si se proporciona una playlist, aplicamos el filtro correspondiente
+    if (config.playlistId) {
+      await this.applyPlaylistFilter(config.playlistId, userIdString, matchFilter);
+    }
+
+    // Si se proporcionan groupIds, los añadimos al filtro
+    if (config.groupIds && config.groupIds.length > 0) {
+      matchFilter.groupId = { $in: config.groupIds };
+    }
+
+    // Construimos el pipeline base con el filtro inicial
+    const pipeline: any[] = [{ $match: matchFilter }];
+
+
+    // Dependiendo del ordenamiento, añadimos las etapas correspondientes al pipeline
+    if (config.orderBy === 'random') {
+      pipeline.push({ $sample: { size: limit } });
+    } else {
+      pipeline.push(...this.getLeastStudiedStages(userIdString, limit));
+    }
+
+    return pipeline;
+  }
+
+  private getBaseAudioFilter(): Record<string, any> {
+    return {
+      'translations.0.audios': {
+        $all: [
+          { $elemMatch: { gender: 'femenino', audioUrl: { $ne: this.PENDING_AUDIO_FILE } } },
+          { $elemMatch: { gender: 'masculino', audioUrl: { $ne: this.PENDING_AUDIO_FILE } } }
+        ]
+      }
+    };
+  }
+
+  private async applyPlaylistFilter(
+    playlistId: string,
+    userId: string,
+    matchFilter: Record<string, any>
+  ): Promise<void> {
+    const playlist = await this.playlistModel.findOne({ _id: playlistId, user: userId });
+
+    if (!playlist) {
+      throw new NotFoundException('Playlist no encontrada');
+    }
+
+    // Mutamos el filtro para incluir la restricción de la playlist
+    matchFilter._id = { $in: playlist.phrases };
+  }
+
+  private getLeastStudiedStages(userId: string, limit: number): any[] {
+    return [
+      {
+        $lookup: {
+          from: 'userphrasestats',
+          let: { phraseId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$phrase', '$$phraseId'] },
+                    { $eq: ['$user', userId] }
+                  ]
+                }
+              }
+            },
+          ],
+          as: 'stats',
+        },
+      },
+      { $unwind: { path: '$stats', preserveNullAndEmptyArrays: true } },
+      { $sort: { 'stats.relaxListenCount': 1 } },
+      { $limit: limit }
+    ];
+  }
 
 }

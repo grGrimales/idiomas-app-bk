@@ -39,10 +39,6 @@ export class Phrase extends Document {
 
   @Prop({ type: Number, required: true })
   groupId: number;
-  
-
-
-
 
 
 }

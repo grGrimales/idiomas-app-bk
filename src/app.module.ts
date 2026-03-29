@@ -20,7 +20,7 @@ import { StatisticsModule } from './statistics/statistics.module';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
         // Recomiendo poner la URL en un archivo .env
-        uri: configService.get<string>('MONGO_URI'), 
+        uri: configService.get<string>('MONGO_URI'),
       }),
     }),
     AuthModule,
@@ -32,4 +32,4 @@ import { StatisticsModule } from './statistics/statistics.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

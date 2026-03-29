@@ -11,9 +11,12 @@ import { User } from '../auth/schemas/user.schema';
 import { GetPhrasesQueryDto } from './dto/get-phrases-query.dto';
 import { GenerateAudioDto } from './dto/generate-audio.dto';
 
+
 @Controller('phrases')
 @UseGuards(AuthGuard()) // Proteger todas las rutas de este controlador
 export class PhrasesController {
+
+
   constructor(private readonly phrasesService: PhrasesService) { }
 
   @Delete(':id/translations/:index/audio/:gender')
